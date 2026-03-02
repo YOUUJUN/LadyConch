@@ -1,7 +1,10 @@
 <script setup>
 import Versions from './components/Versions.vue'
 
-const ipcHandle = () => window.api.llmAPI.hi()
+const ipcHandle = () => {
+	console.log('llmAPI', window.api.llmAPI)
+	window.api.llmAPI.testLLMStream()
+}
 </script>
 
 <template>

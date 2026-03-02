@@ -4,6 +4,8 @@ import { electronAPI } from '@electron-toolkit/preload'
 //大模型调用
 const llmAPI = {
 	hi: () => ipcRenderer.invoke('llm:hi'),
+	testLLMClient: () => ipcRenderer.invoke('llm:testLLMClient'),
+	testLLMStream: () => ipcRenderer.invoke('llm:testLLMStream'),
 }
 
 // Custom APIs for renderer

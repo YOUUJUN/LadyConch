@@ -241,6 +241,243 @@ class LLMClient {
 			throw error
 		}
 	}
+
+	/**
+	 * 流式对话（异步生成器）
+	 * @param {string} userMessage - 用户消息
+	 * @param {Object} [options={}]
+	 * @param {string} [options.systemPrompt] - 系统提示词
+	 * @param {boolean} [options.useTools] - 是否使用工具
+	 * @param {Function} [options.onToken] - 收到token时的回调
+	 * @param {Function} [options.onThinking] - 收到思考内容时的回调
+	 * @param {Function} [options.onToolCall] - 收到工具调用时的回调
+	 * @param {Function} [options.onUsage] - 收到使用量时的回调
+	 * @param {number} [options.maxToolCalls=10] - 最大工具调用次数
+	 * @param {AbortSignal} [options.abortSignal] - 中止信号
+	 */
+	async *streamChat(userMessage, options = {}) {
+		this.addMessage('user', userMessage)
+
+		if (options.systemPrompt) {
+			this.context.messages.unshift({
+				id: 'system-init',
+				role: 'system',
+				content: options.systemPrompt,
+				createdAt: Date.now(),
+			})
+		}
+
+		this.maxToolCalls = options.maxToolCalls ?? 10
+		this.toolExecutionCount = 0
+
+		yield* this._executeStream(options)
+	}
+
+	/**
+	 * 内部：执行流式循环
+	 * @private
+	 */
+	async *_executeStream(options) {
+		const streamOptions = {
+			temperature: this.config.temperature,
+			maxTokens: this.config.maxTokens,
+			topP: this.config.topP,
+			tools: options.useTools ? TOOLS : undefined,
+			toolChoice: options.useTools ? (options.toolChoice ?? 'auto') : undefined,
+			signal: options.abortSignal,
+			apiKey: this.config.apiKey,
+		}
+
+		if (this.config.thinking?.enabled) {
+			streamOptions.thinking = {
+				level: this.config.thinking.level,
+				budgetTokens: this.config.thinking.budgetTokens,
+			}
+		}
+
+		let fullContent = ''
+		let reasoningContent = ''
+		const toolCalls = []
+		let currentToolCall = null
+		let usage = null
+
+		try {
+			const streamIterator = stream(this.model, this.context, streamOptions)
+			console.log('streamIterator', streamIterator)
+
+			for await (const event of streamIterator) {
+				console.log('event', event.type)
+
+				switch (event.type) {
+					case 'text_delta': // ✅ 文本增量
+						fullContent += event.delta
+						options.onToken?.(event.delta)
+						yield { type: 'token', content: event.delta }
+						break
+
+					case 'thinking_delta': // ✅ 思考增量
+						reasoningContent += event.delta
+						options.onThinking?.(event.delta)
+						yield { type: 'reasoning', content: event.delta }
+						break
+
+					case 'toolcall_start': // ✅ 工具调用开始
+						currentToolCall = {
+							id: event.partial.content[event.contentIndex]?.id,
+							name: event.partial.content[event.contentIndex]?.name,
+							arguments: '',
+						}
+						break
+
+					case 'toolcall_delta': // ✅ 工具调用增量
+						if (currentToolCall) {
+							currentToolCall.arguments += event.delta
+						}
+						break
+
+					case 'toolcall_end': // ✅ 工具调用结束
+						if (currentToolCall) {
+							toolCalls.push(currentToolCall)
+							options.onToolCall?.(currentToolCall)
+							yield { type: 'toolCall', toolCall: currentToolCall }
+						}
+						currentToolCall = null
+						break
+
+					case 'done': // ✅ 完成
+						yield { type: 'finish', reason: event.reason }
+						break
+
+					case 'error': // ✅ 错误
+						throw new Error(event.error.errorMessage)
+
+					case 'start':
+					case 'text_start':
+					case 'text_end':
+					case 'thinking_start':
+					case 'thinking_end':
+						// 可选：处理这些事件
+						break
+				}
+			}
+
+			// 处理工具调用
+			if (toolCalls.length > 0) {
+				if (this.toolExecutionCount >= this.maxToolCalls) {
+					throw new Error('工具调用次数超过限制')
+				}
+
+				this.toolExecutionCount += toolCalls.length
+
+				this.addMessage('assistant', fullContent, {
+					toolCalls,
+					reasoning: reasoningContent || undefined,
+				})
+
+				for (const toolCall of toolCalls) {
+					const result = await this._executeTool(toolCall)
+					this.addMessage('tool', JSON.stringify(result), { toolCallId: toolCall.id })
+					yield { type: 'toolResult', toolCallId: toolCall.id, result }
+				}
+
+				yield* this._executeStream({ ...options, useTools: false })
+			} else {
+				this.addMessage('assistant', fullContent, {
+					reasoning: reasoningContent || undefined,
+				})
+
+				if (usage) {
+					this.usageHistory.push(usage)
+				}
+			}
+		} catch (error) {
+			if (error.name === 'AbortError') {
+				console.log('Stream aborted by user')
+				return
+			}
+			throw error
+		}
+	}
+
+	/**
+	 * 执行工具
+	 * @private
+	 */
+	async _executeTool(toolCall) {
+		const { name, arguments: argsStr } = toolCall
+		let args = {}
+
+		try {
+			args = JSON.parse(argsStr)
+		} catch {
+			args = {}
+		}
+
+		console.log(`🔧 执行工具: ${name}`, args)
+
+		switch (name) {
+			case 'get_weather': {
+				const { location, units = 'celsius' } = args
+				return {
+					location,
+					temperature: Math.floor(Math.random() * 30) + 10,
+					condition: ['sunny', 'cloudy', 'rainy', 'snowy'][Math.floor(Math.random() * 4)],
+					humidity: `${Math.floor(Math.random() * 40) + 40}%`,
+					units,
+					timestamp: new Date().toISOString(),
+				}
+			}
+
+			case 'read_file': {
+				const { path, encoding = 'utf-8' } = args
+				try {
+					const fs = await import('fs/promises')
+					const content = await fs.readFile(path, encoding)
+					return {
+						success: true,
+						path,
+						size: content.length,
+						content: content.substring(0, 5000),
+						truncated: content.length > 5000,
+					}
+				} catch (error) {
+					return {
+						success: false,
+						path,
+						error: error.message,
+					}
+				}
+			}
+
+			case 'web_search': {
+				const { query, num_results = 5 } = args
+				return {
+					query,
+					results: Array.from({ length: num_results }, (_, i) => ({
+						title: `搜索结果 ${i + 1} for "${query}"`,
+						url: `https://example.com/result-${i + 1}`,
+						snippet: `这是关于 ${query} 的模拟搜索结果摘要...`,
+					})),
+					total_results: num_results,
+					search_time: '0.32s',
+				}
+			}
+
+			case 'execute_code': {
+				const { language, code, timeout = 30000 } = args
+				return {
+					success: true,
+					language,
+					executed: false,
+					message: '代码执行功能需要在沙箱环境中启用',
+					code_preview: code.substring(0, 100) + (code.length > 100 ? '...' : ''),
+				}
+			}
+
+			default:
+				return { error: `未知工具: ${name}` }
+		}
+	}
 }
 
 export default LLMClient

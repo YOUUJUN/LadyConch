@@ -5,4 +5,6 @@ console.log('llmHandlers', llmHandlers)
 export function registerIpcHandlers() {
 	// llm
 	ipcMain.handle('llm:hi', llmHandlers.hi)
+	ipcMain.handle('llm:testLLMClient', llmHandlers.testLLMClient)
+	ipcMain.handle('llm:testLLMStream', llmHandlers.testLLMStream)
 }
