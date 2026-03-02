@@ -1,12 +1,4 @@
-import {
-	getModel,
-	complete,
-	stream,
-	getAvailableModels,
-	getAvailableProviders,
-	StringEnum,
-	Type,
-} from '@mariozechner/pi-ai'
+import { getModel, complete, stream, getProviders, StringEnum } from '@mariozechner/pi-ai'
 import { v1 as uuidv1 } from 'uuid'
 
 class LLMClient {
@@ -30,11 +22,41 @@ class LLMClient {
 			...config,
 		}
 
-		this.model = getModel(config.provider, config.modelId, {
-			apiKey: config.apiKey,
-			baseUrl: config.baseUrl,
-			...(config.metadata && { metadata: config.metadata }),
-		})
+		this.model = this._createModel()
+		console.log('this.model', this.model)
+	}
+
+	_createModel() {
+		const { provider, modelId, apiKey, baseUrl, metadata } = this.config
+
+		let model = null
+
+		if (this.config.provider === 'ollama') {
+			// 定义本地 Ollama 模型
+			model = {
+				id: modelId,
+				name: modelId,
+				api: 'openai-completions', // 使用 OpenAI 兼容 API
+				provider: 'openai',
+				baseUrl, // Ollama 默认地址
+				reasoning: false,
+				input: ['text'],
+				cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, // 本地模型无费用
+				contextWindow: 128000,
+				maxTokens: 32000,
+				headers: {
+					Authorization: 'Bearer ollama',
+				},
+			}
+		} else {
+			model = getModel(provider, modelId, {
+				apiKey,
+				baseUrl,
+				...(metadata && { metadata }),
+			})
+		}
+
+		return model
 	}
 
 	/**
@@ -147,6 +169,7 @@ class LLMClient {
 				toolChoice: options.useTools ? (options.toolChoice ?? 'auto') : undefined,
 				parallelToolCalls: this.config.parallelToolCalls,
 				signal: options.abortSignal,
+				apiKey: this.config.apiKey,
 			}
 
 			if (this.config.thinking?.enabled) {
@@ -157,6 +180,7 @@ class LLMClient {
 			}
 
 			const response = await complete(this.model, this.context, completionOptions)
+			console.log('response', response)
 
 			if (response.usage) {
 				this.usageHistory.push(response.usage)
@@ -218,3 +242,5 @@ class LLMClient {
 		}
 	}
 }
+
+export default LLMClient
