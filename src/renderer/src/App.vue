@@ -3,7 +3,7 @@ import Versions from './components/Versions.vue'
 
 const ipcHandle = () => {
 	console.log('llmAPI', window.api.llmAPI)
-	window.api.llmAPI.testLLMStream()
+	window.api.llmAPI.testOnlineLLMClient()
 }
 </script>
 
