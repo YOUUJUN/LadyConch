@@ -46,9 +46,7 @@ class TaskPlanner {
 		}
 
 		// 去重
-		const uniqueSkills = Array.from(
-			new Map(relevantSkills.map(s => [s.name, s])).values()
-		)
+		const uniqueSkills = Array.from(new Map(relevantSkills.map((s) => [s.name, s])).values())
 
 		return uniqueSkills
 	}
@@ -63,7 +61,7 @@ class TaskPlanner {
 		const systemPrompt = `你是一个 skill 评估助手。判断现有 skills 是否足以完成目标。
 
 可用的 skills：
-${availableSkills.map(s => `- ${s.name}: ${s.description}`).join('\n')}
+${availableSkills.map((s) => `- ${s.name}: ${s.description}`).join('\n')}
 
 如果现有 skills 不足以完成目标，返回 JSON：
 {
@@ -83,10 +81,9 @@ ${availableSkills.map(s => `- ${s.name}: ${s.description}`).join('\n')}
 		this.llmClient.addMessage('user', `目标：${goal}`)
 
 		const response = await this.llmClient.chat()
-
+		const responseText = response.content[0].text
 		try {
-			const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/) ||
-			                  response.match(/\{[\s\S]*\}/)
+			const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/) || responseText.match(/\{[\s\S]*\}/)
 			if (jsonMatch) {
 				return JSON.parse(jsonMatch[1] || jsonMatch[0])
 			}
@@ -163,11 +160,7 @@ Skill 信息：
 		if (skillEvaluation.needNewSkill) {
 			console.log(`需要创建新 skill: ${skillEvaluation.skillName}`)
 			try {
-				newSkill = await this.createNewSkill(
-					skillEvaluation.skillName,
-					skillEvaluation.skillDescription,
-					goal
-				)
+				newSkill = await this.createNewSkill(skillEvaluation.skillName, skillEvaluation.skillDescription, goal)
 				console.log(`新 skill 已创建: ${newSkill.name}`)
 			} catch (error) {
 				console.error('创建新 skill 失败:', error.message)
@@ -179,9 +172,10 @@ Skill 信息：
 			? [...relevantSkills, { name: newSkill.name, description: newSkill.description }]
 			: relevantSkills
 
-		const skillsInfo = availableSkills.length > 0
-			? `\n\n可用的 Skills：\n${availableSkills.map(s => `- ${s.name}: ${s.description}`).join('\n')}\n\n在制定计划时，优先考虑使用这些 skills 来完成任务。`
-			: ''
+		const skillsInfo =
+			availableSkills.length > 0
+				? `\n\n可用的 Skills：\n${availableSkills.map((s) => `- ${s.name}: ${s.description}`).join('\n')}\n\n在制定计划时，优先考虑使用这些 skills 来完成任务。`
+				: ''
 
 		const systemPrompt = `你是一个任务规划助手。你的职责是将复杂目标分解为可执行的子任务。
 
@@ -212,20 +206,23 @@ Skill 信息：
 }`
 
 		this.llmClient.resetContext(systemPrompt)
-		this.llmClient.addMessage('user', `请为以下目标制定任务计划：
+		this.llmClient.addMessage(
+			'user',
+			`请为以下目标制定任务计划：
 
 目标：${goal}
 
 上下文信息：
-${JSON.stringify(context, null, 2)}`)
+${JSON.stringify(context, null, 2)}`,
+		)
 
 		const response = await this.llmClient.chat()
+		const responseText = response.content[0].text
 
 		let plan
 		try {
 			// 尝试从响应中提取 JSON
-			const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/) ||
-			                  response.match(/\{[\s\S]*\}/)
+			const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/) || responseText.match(/\{[\s\S]*\}/)
 			if (jsonMatch) {
 				plan = JSON.parse(jsonMatch[1] || jsonMatch[0])
 			} else {
@@ -240,7 +237,7 @@ ${JSON.stringify(context, null, 2)}`)
 		plan.id = planId
 		plan.createdAt = Date.now()
 		plan.status = 'pending'
-		plan.usedSkills = availableSkills.map(s => s.name)
+		plan.usedSkills = availableSkills.map((s) => s.name)
 		plan.newSkill = newSkill
 		this.tasks.set(planId, plan)
 
@@ -264,11 +261,11 @@ ${JSON.stringify(context, null, 2)}`)
 		const completedTasks = new Set()
 
 		for (const taskId of plan.executionOrder) {
-			const task = plan.tasks.find(t => t.id === taskId)
+			const task = plan.tasks.find((t) => t.id === taskId)
 			if (!task) continue
 
 			// 检查依赖是否完成
-			const dependenciesMet = task.dependencies.every(dep => completedTasks.has(dep))
+			const dependenciesMet = task.dependencies.every((dep) => completedTasks.has(dep))
 			if (!dependenciesMet) {
 				results.push({
 					taskId,
@@ -360,7 +357,6 @@ ${JSON.stringify(context, null, 2)}`)
 
 		this.llmClient.resetContext(systemPrompt)
 		this.llmClient.addMessage('user', '请执行任务并报告结果')
-
 		const response = await this.llmClient.chat()
 
 		return {

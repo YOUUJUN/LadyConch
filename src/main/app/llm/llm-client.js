@@ -10,7 +10,7 @@ class LLMClient {
 		parallelToolCalls: true,
 	}
 	model = null
-	context = { messages: [] }
+	context = { systemPrompt: '', messages: [] }
 	usageHistory = []
 	//工具调用次数
 	toolExecutionCount = 0
@@ -65,9 +65,8 @@ class LLMClient {
 	 */
 	resetContext(systemPrompt) {
 		this.context = {
-			messages: systemPrompt
-				? [{ id: 'system-1', role: 'system', content: systemPrompt, createdAt: Date.now() }]
-				: [],
+			systemPrompt,
+			messages: [],
 		}
 		this.toolExecutionCount = 0
 	}
@@ -119,8 +118,8 @@ class LLMClient {
 	 */
 	trimContext(keepLast = 10) {
 		if (this.context.messages.length > keepLast) {
-			const systemMessages = this.context.messages.filter((m) => m.role === 'system')
-			const otherMessages = this.context.messages.filter((m) => m.role !== 'system')
+			const systemMessages = this.context.messages.filter((m) => m.role === 'assistant')
+			const otherMessages = this.context.messages.filter((m) => m.role !== 'assistant')
 			const recentMessages = otherMessages.slice(-keepLast)
 			this.context.messages = [...systemMessages, ...recentMessages]
 		}
@@ -138,16 +137,7 @@ class LLMClient {
 	 * @returns {Promise<Object>}
 	 */
 	async chat(userMessage, options = {}) {
-		this.addMessage('user', userMessage)
-
-		if (options.systemPrompt && !this.context.messages.find((m) => m.role === 'system')) {
-			this.context.messages.unshift({
-				id: 'system-init',
-				role: 'system',
-				content: options.systemPrompt,
-				createdAt: Date.now(),
-			})
-		}
+		userMessage && this.addMessage('user', userMessage)
 
 		this.maxToolCalls = options.maxToolCalls ?? 10
 		this.toolExecutionCount = 0
@@ -178,9 +168,9 @@ class LLMClient {
 					budgetTokens: this.config.thinking.budgetTokens,
 				}
 			}
-
+			console.log('context --> 1', JSON.stringify(this.context))
 			const response = await complete(this.model, this.context, completionOptions)
-			console.log('response', response)
+			console.log('origin response', response)
 
 			if (response.usage) {
 				this.usageHistory.push(response.usage)

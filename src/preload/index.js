@@ -7,6 +7,8 @@ const llmAPI = {
 	testLLMClient: () => ipcRenderer.invoke('llm:testLLMClient'),
 	testLLMStream: () => ipcRenderer.invoke('llm:testLLMStream'),
 	testOnlineLLMClient: () => ipcRenderer.invoke('llm:testOnlineLLMClient'),
+	
+	plan: (...params) => ipcRenderer.invoke('planner:plan', ...params),
 }
 
 // Custom APIs for renderer

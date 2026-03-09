@@ -9,11 +9,16 @@ let plannerInstance = null
  */
 function getPlannerInstance(config) {
 	if (!plannerInstance || config) {
-		const llmClient = new LLMClient(config || {
-			provider: 'ollama',
-			modelId: 'qwen2.5:latest',
-			baseUrl: 'http://localhost:11434/v1',
-		})
+		const llmClient = new LLMClient(
+			config || {
+				provider: 'ollama',
+				modelId: 'qwen2.5:7b',
+				baseUrl: 'http://192.168.31.183:11434/v1',
+				apiKey: 'ollama',
+				temperature: 0.7,
+				maxTokens: 2048,
+			},
+		)
 		plannerInstance = new TaskPlanner(llmClient, {
 			skillsConfig: config?.skillsConfig,
 		})
