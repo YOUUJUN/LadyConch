@@ -14,7 +14,9 @@ function getPlannerInstance(config) {
 			modelId: 'qwen2.5:latest',
 			baseUrl: 'http://localhost:11434/v1',
 		})
-		plannerInstance = new TaskPlanner(llmClient)
+		plannerInstance = new TaskPlanner(llmClient, {
+			skillsConfig: config?.skillsConfig,
+		})
 	}
 	return plannerInstance
 }
@@ -100,6 +102,54 @@ export function registerPlannerHandlers() {
 			return { success: true, data: newPlan }
 		} catch (error) {
 			console.error('重新规划任务失败:', error)
+			return { success: false, error: error.message }
+		}
+	})
+
+	// 获取可用的 skills
+	ipcMain.handle('planner:skills:list', async () => {
+		try {
+			const planner = getPlannerInstance()
+			const skills = await planner.getAvailableSkills()
+			return { success: true, data: skills }
+		} catch (error) {
+			console.error('获取 skills 列表失败:', error)
+			return { success: false, error: error.message }
+		}
+	})
+
+	// 搜索 skills
+	ipcMain.handle('planner:skills:search', async (event, { query }) => {
+		try {
+			const planner = getPlannerInstance()
+			const skills = await planner.searchSkills(query)
+			return { success: true, data: skills }
+		} catch (error) {
+			console.error('搜索 skills 失败:', error)
+			return { success: false, error: error.message }
+		}
+	})
+
+	// 获取 skill 详情
+	ipcMain.handle('planner:skills:get', async (event, { skillName }) => {
+		try {
+			const planner = getPlannerInstance()
+			const skill = await planner.getSkillDetails(skillName)
+			return { success: true, data: skill }
+		} catch (error) {
+			console.error('获取 skill 详情失败:', error)
+			return { success: false, error: error.message }
+		}
+	})
+
+	// 重新加载 skills
+	ipcMain.handle('planner:skills:reload', async () => {
+		try {
+			const planner = getPlannerInstance()
+			const skills = await planner.reloadSkills()
+			return { success: true, data: skills }
+		} catch (error) {
+			console.error('重新加载 skills 失败:', error)
 			return { success: false, error: error.message }
 		}
 	})
