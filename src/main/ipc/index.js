@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import * as llmHandlers from './handlers/llm'
 import { registerPlannerHandlers } from './handlers/planner'
+import { registerMemoryHandlers } from './handlers/memory'
 
 console.log('llmHandlers', llmHandlers)
 export function registerIpcHandlers() {
@@ -11,4 +12,7 @@ export function registerIpcHandlers() {
 
 	// planner
 	registerPlannerHandlers()
+
+	// memory
+	registerMemoryHandlers()
 }
