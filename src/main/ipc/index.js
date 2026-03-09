@@ -3,6 +3,7 @@ import * as llmHandlers from './handlers/llm'
 import { registerPlannerHandlers } from './handlers/planner'
 import { registerMemoryHandlers } from './handlers/memory'
 import { registerSandboxHandlers } from './handlers/sandbox'
+import { registerPythonSandboxHandlers } from './handlers/python-sandbox'
 
 console.log('llmHandlers', llmHandlers)
 export function registerIpcHandlers() {
@@ -19,4 +20,7 @@ export function registerIpcHandlers() {
 
 	// sandbox
 	registerSandboxHandlers()
+
+	// python sandbox
+	registerPythonSandboxHandlers()
 }
