@@ -1,0 +1,22 @@
+{
+  "name": "ladyconch-docker-sandbox",
+  "version": "1.0.0",
+  "description": "Docker-based sandbox module for LadyConch",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test manager.test.js",
+    "example": "node examples.js",
+    "build": "bash build.sh"
+  },
+  "keywords": [
+    "sandbox",
+    "docker",
+    "isolation",
+    "security"
+  ],
+  "author": "LadyConch",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {}
+}
