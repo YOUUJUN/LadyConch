@@ -1,2 +1,6 @@
 export { default as AgentManager } from './agent.js'
 export { default as SkillRunner } from '../../skills/skill-runner.js'
+export { ContextBuilder } from './context.js'
+export { SkillToToolConverter } from './skill-to-tool.js'
+export { default as ToolRegistry } from './tool-registry.js'
+export { AgentToolManager } from './tool-manager.js'
