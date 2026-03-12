@@ -1,6 +1,6 @@
 import { Agent } from '@mariozechner/pi-agent-core'
 import { getModel } from '@mariozechner/pi-ai'
-import SkillRunner from '../skills/skill-runner.js'
+import SkillRunner from '../../skills/skill-runner.js'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
